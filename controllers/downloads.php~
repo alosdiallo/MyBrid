@@ -1,0 +1,70 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed\n');
+       
+/*
+ * class Downloads
+ * 
+ * Allows the page to dynamically generate a new interaction matrix file
+ * whenever the user makes a request
+ * 
+ * written by Philippe Ribeiro, August 27th, 2011
+ * 
+ */
+class Downloads extends CI_Controller{
+
+	//
+	private $file;
+	private $url;
+	private $time;
+	private $header = array('Bait', 'Array Coord', 'orf', 'gene name', 'bleed over', '# of positives', 'Normalized intensity', 'PTP Intensity', 'Raw intensity', 'Z-Score');
+	
+	public function __construct(){
+		
+		parent::__construct();
+		$this->load->model('Download_Model');
+		$this->time = date('Y-m-d_H:i:s');
+		$this->file = '/project/csbio/web/UMassProject/dev/Philippe/downloads/avg_data' . $this->time . '.csv';
+		
+	}
+	
+	private function createFile($data){
+		
+		$fp = fopen($this->file, 'w');
+
+		fputcsv($fp, $this->header, chr(44));
+		//writes the intermatrix to the file in .csv format
+		foreach($data as $line){
+				fputcsv($fp, (array)$line[0], chr(44));
+		}
+		
+		chmod($this->file, 0777);
+		fclose($fp);
+	}
+	
+	public function downloadFile(){
+		
+		$list      = $this->input->post('intermatrix');
+		$userId    = $this->input->post('user_id');
+		$projectId = $this->input->post('project_id');
+		if(!$list){ 
+			echo "No data"; 
+			return;
+		}
+		$tf_list = array_unique($list);
+		
+		$results = $this->Download_Model->getData($tf_list, $userId, $projectId);
+		
+		$this->createFile($results);
+		
+		if(file_exists($this->file)){
+			$this->url = 'http://csbio.cs.umn.edu/UMassProject/dev/Philippe/downloads/avg_data' . $this->time . '.csv';
+			echo json_encode($this->url);
+		}
+		else{
+			echo json_encode(false);
+		}
+		
+		
+	}
+	
+}
+?>

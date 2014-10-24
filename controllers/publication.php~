@@ -1,0 +1,23 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+
+class Publication extends CI_Controller{
+	
+	public function __construct(){
+		parent::__construct();
+	}
+	
+	public function index(){
+		$this->load->helper('url');
+		$this->load->helper('html');
+		$this->load->model('Project_Model');
+		$this->load->model('Config_Model');
+		$this->Config_Model->checkLogin();
+		
+		$loadData['project'] = $this->Project_Model->getFullProjectList();
+		//$ids = array("userId"=>"jnelson", "projectId"=>"project1");
+		//print_r($projectArray);
+		print_r($loadData);
+		$this->load->view('publication_view', $loadData);
+	}
+}

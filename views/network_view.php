@@ -1,0 +1,407 @@
+<?php 
+$base_url = base_url();
+
+//$jsonPromoterData      = json_encode($promoterData);
+?>
+<html>                                                         
+	<head>    
+		<title>MyBrid</title>
+		<!-- CSS FILES -->
+		<link href="<?php echo $base_url?>css/jquery.ui.all.css" rel="stylesheet" type="text/css">
+		<link href="<?php echo $base_url?>css/universal.css" rel="stylesheet" type="text/css">
+		
+		<!-- JAVASCRIPT FILES -->
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery-1.6.2.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.core.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.widget.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.position.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.autocomplete.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/project_control.js"></script>
+		  <!-- Flash embedding utility (needed to embed Cytoscape Web) -->
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/js/min/AC_OETags.min.js"></script>
+		 <!-- Cytoscape Web JS API (needed to reference org.cytoscapeweb.Visualization) -->
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/js/min/cytoscapeweb.min.js"></script>
+		
+		<style type="text/css">
+	        #network { 
+				width: 800; 
+				height: 600; 
+				border-style:solid;
+				border-width:5px;
+			}
+		</style>
+		<style>
+			.ui-autocomplete {
+				max-height: 100px;
+				overflow-y: auto;
+				/* prevent horizontal scrollbar */
+				overflow-x: hidden;
+				/* add padding to account for vertical scrollbar */
+				padding-right: 20px;
+			}
+			/* IE 6 doesn't support max-height
+			 * we use height instead, but this forces the menu to always be this tall
+			 */
+			* html .ui-autocomplete {
+				height: 100px;
+			}
+		</style>
+		<script>
+			//////
+			// Define base url for project control
+			//////
+			
+			var base_url = "<?php echo $base_url?>"; 
+			var userMem = "<?php echo $this->session->userdata('user_mem')?>";
+			var projectMem = "<?php echo $this->session->userdata('project_mem')?>";
+			var limitMetaProjects = 1;
+			
+			function generateNetwork(){
+				getNodes();
+			}
+			
+			
+			function getNodes(){
+				var user = $("#user_id").val();
+				var project = $("#project_id").val();
+				var promoters = $("#promoter").val();
+				var tfs = $("#transcriptor").val();
+				
+				if(promoters != ""){
+					promoters = promoters.replace(/ /g, '');
+					promoters = '"'+promoters.replace(/,/g, '","')+'"';
+				}
+				if(tfs != ""){
+					tfs = tfs.replace(/ /g, '');
+					tfs = '"'+tfs.replace(/,/g, '","')+'"';
+				}
+				
+				$.ajax({
+					url : '<?php echo $base_url?>index.php/network_view/getEdges',
+					type : 'post',
+					data : {
+						user:    user,
+						project: project,
+						promoters:   promoters,
+						tfs:         tfs
+					},
+					success : function(answer){
+						var edges = eval( "(" + answer + ")" );
+						if(edges.length != 0){
+							// What to do on bad searches on network view?
+							$.ajax({
+								url : '<?php echo $base_url?>index.php/network_view/getNodes',
+								type : 'post',
+								data : {
+									user:    user,
+									project: project,
+									promoters:   promoters,
+									tfs:         tfs,
+									edges:		 edges
+								},
+								success : function(answer){
+									nodes = eval( "(" + answer + ")" );
+									//getEdges(user, project);
+									displayNetwork(nodes, edges);
+								}
+							});
+						}
+					}
+				});
+			}
+			
+			//
+			// Set up variables for the network
+			//
+			
+			// id of Cytoscape Web container div
+			var network_div_id = "network";
+			// initialization options
+			var network_options = {
+				 // where you have the Cytoscape Web SWF
+				 swfPath: "<?php echo $base_url?>javascript/swf/CytoscapeWeb",
+				 // where you have the Flash installer SWF
+				 flashInstallerPath: "<?php echo $base_url?>javascript/swf/playerProductInstall"
+			};
+			var network_style = {
+				nodes: {
+					shape: { passthroughMapper: { attrName: "shape" } },
+					color: {
+								discreteMapper: {
+									attrName: "color",
+									entries: [
+										{ attrValue: "BLUE", value: "#55C3DC" },
+										{ attrValue: "ORANGE", value: "#FFA500" }
+									]
+								}
+							},
+				}
+			}; 
+			
+			var vis;
+			
+			function displayNetwork(nodes, edges){
+				//Network Variable
+				var network_json = {
+					dataSchema: {
+						nodes: [ { name: "label", type: "string" },
+								 { name: "shape", type: "string" },
+								 { name: "color", type: "string" },]
+					},
+					
+					data: {
+						nodes: nodes,
+						edges: edges
+					}
+				};
+				
+				var layoutSelection = $('#layout-select').val();
+				
+				// init and draw
+				vis = new org.cytoscapeweb.Visualization(network_div_id, network_options);
+				vis.draw({visualStyle: network_style, network: network_json, layout: layoutSelection });
+			}
+			
+			function changeLayout(){
+				var layoutSelection = $('#layout-select').val();
+				
+				vis.layout(layoutSelection);
+			}
+		</script>
+		<script>
+			var promoterTags;
+			var transcriptionTags;
+			
+			function projectChange(){
+				// Grab lists for autocomplete when projectChanges
+				$.ajax({
+					url : '<?php echo $base_url?>index.php/autocomplete/getPromoterData',
+					type : 'post',
+					data : {
+						user   : userMem,
+						project : projectMem
+					},
+					success : function(answer){
+						promoterTags = eval(answer);
+					}
+				});
+				$.ajax({
+					url : '<?php echo $base_url?>index.php/autocomplete/getTranscriptionData',
+					type : 'post',
+					data : {
+						user   : userMem,
+						project : projectMem
+					},
+					success : function(answer){
+						transcriptionTags = eval(answer);
+					}
+				});
+			}
+			
+			$(function() {
+				/// Set up lists for autocomplete
+				promoterTags = ["blank"];
+				transcriptionTags = ["blank"];
+				projectChange();
+				
+				/// Set up functions for autocomplete
+				function split( val ) {
+					return val.split( /,\s*/ );
+				}
+				function extractLast( term ) {
+					return split( term ).pop();
+				}
+			// Promoter
+				$( "#promoter" )
+					// don't navigate away from the field on tab when selecting an item
+					.bind( "keydown", function( event ) {
+						if ( event.keyCode === $.ui.keyCode.TAB &&
+								$( this ).data( "autocomplete" ).menu.active ) {
+							event.preventDefault();
+						}
+					})
+					.autocomplete({
+						minLength: 0,
+						source: function( request, response ) {
+							var matches = $.map( promoterTags, function(tag) {
+								if ( tag.toUpperCase().indexOf(request.term.toUpperCase()) === 0 ) {
+									return tag;
+								}
+							});
+							response(matches);
+						},
+						focus: function() {
+							// prevent value inserted on focus
+							return false;
+						},
+						select: function( event, ui ) {
+							var terms = split( this.value );
+							// remove the current input
+							terms.pop();
+							// add the selected item
+							terms.push( ui.item.value );
+							// add placeholder to get the comma-and-space at the end
+							terms.push( "" );
+							this.value = terms.join( ", " );
+							return false;
+						}
+					});
+				// No need for end on this level
+			// Transcriptor
+				$( "#transcriptor" )
+					// don't navigate away from the field on tab when selecting an item
+					.bind( "keydown", function( event ) {
+						if ( event.keyCode === $.ui.keyCode.TAB &&
+								$( this ).data( "autocomplete" ).menu.active ) {
+							event.preventDefault();
+						}
+					})
+					.autocomplete({
+						minLength: 0,
+						source: function( request, response ) {
+							var matches = $.map( transcriptionTags, function(tag) {
+								if ( tag.toUpperCase().indexOf(request.term.toUpperCase()) === 0 ) {
+									return tag;
+								}
+							});
+							response(matches);
+						},
+						focus: function() {
+							// prevent value inserted on focus
+							return false;
+						},
+						select: function( event, ui ) {
+							var terms = split( this.value );
+							// remove the current input
+							terms.pop();
+							// add the selected item
+							terms.push( ui.item.value );
+							// add placeholder to get the comma-and-space at the end
+							terms.push( "" );
+							this.value = terms.join( ", " );
+							return false;
+						}
+					});
+				// No need for end on this level
+			});
+		</script>
+		<script>
+			function downloadFile(){
+				var user = $('#user_id').val();
+				var project = $('#project_id').val();
+				var promoters = $("#promoter").val();
+				var tfs = $("#transcriptor").val();
+				
+				
+				
+				if(promoters != ""){
+					promoters = promoters.replace(/ /g, '');
+					promoters = '"'+promoters.replace(/,/g, '","')+'"';
+				}
+				if(tfs != ""){
+					tfs = tfs.replace(/ /g, '');
+					tfs = '"'+tfs.replace(/,/g, '","')+'"';
+				}
+
+				$("#loader").html('<img src="http://franklin-umh.cs.umn.edu/UMassProject/images/loader.gif"/>');
+				 
+				$.ajax({
+					url : '<?php echo $base_url?>index.php/network_view/downloadNetwork',
+					type : 'post',
+					data : {
+						user : user,
+						project : project,
+						promoters: promoters,
+						tfs: tfs
+					},
+					success : function(answer){	
+						if(answer == "error"){
+							alert("file does not exist");
+						} else if (answer == "data"){
+							alert("There are no interactions for your input");
+						} else {
+							var url = eval(answer);
+							//alert(url);
+							window.location.href = url;
+						}
+						$("#loader").empty();
+					}
+				});
+			}
+		</script>
+	</head>
+	<body>
+		<div id="head" class="medium-padding">
+			<div id="session_controls" class="alignright">
+				<!--Session Control Divs-->
+				<span id="user_session_controls">
+					<?php
+						if($this->session->userdata('is_logged_in') == false){
+								echo '
+								<FORM METHOD="LINK" ACTION="'.$base_url.'index.php/login/" class="alignright">
+									<INPUT TYPE="submit" VALUE="Login">
+								</FORM>
+								';
+						  }
+						  else{
+								echo '
+								<FORM METHOD="LINK" ACTION="'.$base_url.'index.php/login/logout/" class="alignright">
+									<INPUT TYPE="submit" VALUE="Logout">
+								</FORM>
+								';
+						  }
+					?>
+					<FORM METHOD="LINK" ACTION="<?php echo $base_url?>" class="alignright">
+						<INPUT TYPE="submit" VALUE="Back to Homepage">
+					</FORM>
+				</span>
+			</div>
+		
+			
+			<form action="<?php echo $base_url?>index.php/data/" method="post">
+				<span id="user_project_controls">
+					<span id="project_controls" >
+						<select id="project_id" name="project_id" class="alignright"></select>
+					</span>
+					<span id="user_controls" >
+						<select id="user_id" name="user_id" class="alignright"></select>
+					</span>
+				</span>
+				<br>
+				<!-- BAIT and PREY Input Area-->
+				<table>
+					<tr>
+						<td>Bait</td> 
+						<td><input type="text" size="80" id="promoter" name="promoter" autocomplete=off /></td>
+					</tr>
+					<tr>
+						<td>Prey</td>
+						<td><input type="text" size="80" id="transcriptor" name="transcriptor" autocomplete=off /></td>
+					</tr>
+				</table>
+				<!-- END BAIT and PREY Input Area-->
+				<button type="button" id="generateNetwork" onClick="getNodes()">Generate Network</button>
+				<select id='layout-select'>
+					<option value="ForceDirected">ForceDirected</option>
+					<option value="Circle">Circle</option>
+					<option value="Radial">Radial</option>
+					<option value="Tree">Tree</option>
+				</select>
+				<br>
+				<input type="submit" value="Browse Interactions" />
+				<input type="hidden" name="hasPost" id="hasPost" value="true" /><br />
+			</form>
+		</div>
+		
+		
+			
+			
+			<!--button type="button" id="changeLayout" onClick="changeLayout()">Change Layout</button-->
+
+		<div >
+			<div><input type='button' value='Download Full Network as CSV' onclick='downloadFile();'></input><br></div>
+			<div id="loader"></div>
+			<div id="network"></div>
+		</div>	 
+	</body>
+</html>

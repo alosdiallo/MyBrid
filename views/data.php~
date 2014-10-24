@@ -1,0 +1,155 @@
+<?php 
+$base_url = base_url();
+?>
+                                                                 
+<head>    
+	<title>Spot-On</title>
+	<!-- CSS FILES -->
+	<link href="<?php echo $base_url?>css/universal.css" rel="stylesheet" type="text/css">
+	<link href="<?php echo $base_url?>css/jquery.ui.all.css" rel="stylesheet" type="text/css">
+	
+	<!--link href="<?php echo $base_url?>css/page.css" rel="stylesheet" type="text/css">
+	<link href="<?php echo $base_url?>css/style.css" rel="stylesheet" type="text/css">
+	<link href="<?php echo $base_url?>css/jquery.ui.all.css" rel="stylesheet" type="text/css"-->
+	
+	<!-- JAVASCRIPT FILES -->
+	<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery-1.6.2.js"></script>
+	<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.core.js"></script>
+	<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.widget.js"></script>
+	<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.position.js"></script>
+	<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.autocomplete.js"></script>
+	<script type="text/javascript" src="<?php echo $base_url?>javascript/monkeyPatchAutocomplete.js"></script>
+	<script type="text/javascript" src="<?php echo $base_url?>javascript/project_control.js"></script>
+	
+	<style type="text/css"></style>
+	<script>
+	var base_url = "<?php echo $base_url?>";
+	var userMem = "<?php echo $this->session->userdata('user_mem')?>";
+	var projectMem = "<?php echo $this->session->userdata('project_mem')?>";
+
+	$(function() {
+		monkeyPatchAutocomplete();
+		
+		
+		/*
+		*** transTags
+		* Contains the transcriptor tags gotten from controller
+		**/
+		var transTags = <?php echo $transcriptorTags?>
+		
+		/*
+		*** Autocomplete: Transcriptor
+		* Uses the transcriptor tags above to create an autocomplete query
+		**/
+		$( "#transcriptor" ).autocomplete({
+			source: function(req, responseFn) {
+		        var re = $.ui.autocomplete.escapeRegex(req.term);
+		        var matcher = new RegExp( "^" + re, "i" );
+		        var a = $.grep( transTags, function(item,index){
+		            return matcher.test(item);
+		        });
+		        /*
+		        ***
+		        * responseFn is passed an array with the values that should be shown to the user
+		        * if no match is found, display nothing otherwise a contains a list of transcriptors
+		        * to display as an autocomplete
+		        **/
+		        
+		        if(a.length == 0)
+		        {
+					responseFn( ["No match found."] );
+				} else {
+					responseFn( a );
+				}
+				
+		    }
+		});
+		
+		/*
+		*** promTags
+		* Contains the transcriptor tags gotten from controller
+		**/
+		var promTags = <?php echo $promotorTags?>
+		
+		/*
+		*** Autocomplete: promotors
+		* Uses the promotor tags above to create an autocomplete query
+		**/
+		$( "#promoter" ).autocomplete({
+			source: function(req, responseFn) {
+		        var re = $.ui.autocomplete.escapeRegex(req.term);
+		        var matcher = new RegExp( "^" + re, "i" );
+		        var a = $.grep( promTags, function(item,index){
+		            return matcher.test(item);
+		        });
+		        /*
+		        ***
+		        * responseFn is passed an array with the values that should be shown to the user
+		        * if no match is found, display nothing otherwise a contains a list of promotors
+		        * to display as an autocomplete
+		        **/
+		        if(a.length == 0)
+		        {
+					responseFn( ["No match found."] );
+				} else {
+					responseFn( a );
+				}
+		    }
+
+		});
+	});
+	
+	
+	</script>
+</head>
+<body>
+	<div id="head" class="medium-padding">
+		<div id="session_controls" class="alignright">
+			<span id="user_session_controls">
+				<?php
+					if($this->session->userdata('is_logged_in') == false){
+							echo '
+							<FORM METHOD="LINK" ACTION="'.$base_url.'index.php/login/" class="alignright">
+								<INPUT TYPE="submit" VALUE="Login">
+							</FORM>
+							';
+					  }
+					  else{
+							echo '
+							<FORM METHOD="LINK" ACTION="'.$base_url.'index.php/login/logout/" class="alignright">
+								<INPUT TYPE="submit" VALUE="Logout">
+							</FORM>
+							';
+					  }
+				?>
+				<FORM METHOD="LINK" ACTION="<?php echo $base_url?>" class="alignright">
+					<INPUT TYPE="submit" VALUE="Back to Homepage">
+				</FORM>
+			</span>
+		</div>
+		<form action="<?php echo $base_url?>index.php/data/" method="post">
+			Transcription Factor: <input type="text" id="transcriptor" name="transcriptor" size='30' autocomplete=off 
+			onblur="if(this.value == ''){this.value='enter your keywords here';}" value="enter your keywords here" 
+			onfocus="if(this.value == this.defaultValue){this.value = '';}" />
+			Promoter : <input type="text" id="promoter" name="promoter" size="30" autocomplete=off
+			onblur="if(this.value == ''){this.value='enter your keywords here';}" value="enter your keywords here" 
+			onfocus="if(this.value == this.defaultValue){this.value = '';}"/>
+			<input type="submit" value="Search" />
+			z-score &gt; <input type="text" id="zscore" name="zscore" size="3" autocomplete=off />
+			z-prime &gt; <input type="text" id="zprime" name="zprime" size="3" autocomplete=off />
+			<input type="checkbox" id="positive" name="positiveSearch" value="True" /> Force positive search
+			<input type="checkbox" id="bleedover" name="bleedoverSearch" value="True" /> Bleed Over search
+			<span id="user_project_controls">
+				<span id="user_controls" >
+					<select id="user_id" name="user_id" class="alignright"></select>
+				</span>
+				<span id="project_controls" >
+					<select id="project_id" name="project_id" class="alignright"></select>
+				</span>
+			</span>
+		</form>
+	</div>
+	<?php echo $notLoggedIn ?"You must be logged in to use this feature."               . "\n":""?>      
+	<?php echo $queryFail   ?"The query that you have entered has returned no results." . "\n":""?>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<?php 
+	$base_url = base_url();
+	
+	$jsonPromoterData      = json_encode($promoterData);
+?>
+<html>                                                               
+	<head>    
+		<title>MyBrid</title>
+		<!-- CSS FILES -->
+		<!--link href="<?php echo $base_url?>css/jquery.ui.all.css" rel="stylesheet" type="text/css"-->
+		<link href="<?php echo $base_url?>css/universal.css" rel="stylesheet" type="text/css">
+		
+		<!-- JAVASCRIPT FILES -->
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery-1.6.2.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.core.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.widget.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.position.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.autocomplete.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/project_control.js"></script>
+		
+		<style type="text/css">
+			#head {
+			    height: 60px;
+			}
+			#viewTable {
+				width: 100%;
+				align: left;
+			}
+			#tableScroll {
+				top: 0;
+				position: absolute;
+				height: 98%;
+			    overflow: auto;
+			    padding-left: 10px;
+			    width: 30%;
+			    border: 1px solid;
+			}
+			#plateview {
+				left: 32%;
+			    position: absolute;
+			    top: 0;
+			    overflow: auto;
+			    height: 98%;
+			    width: 20%;		
+			    border: 1px solid;    
+			   
+			}
+			.image {
+				width: 98%
+			}
+			.plateViewImage {
+			    width: 100%;
+			}
+			
+			.background {
+				height: 94%;
+			    position: relative;
+			    width: 100%;
+			}
+			
+			.fullViewImage {
+			    width: 100%;
+			}
+			
+			#fullview {
+				width: 46%;
+				left: 53%;
+				top 0;
+				position: absolute;
+				border: 1px solid;
+				height: 98%;
+			}
+		</style>
+		<script>
+			//////
+			// Define base url for project control
+			//////
+			var base_url = "<?php echo $base_url?>"; 
+			var userMem = "<?php echo $this->session->userdata('user_mem')?>";
+			var projectMem = "<?php echo $this->session->userdata('project_mem')?>";
+			
+			//////
+			// promoterData
+			//////
+			var promoterData   = eval(<?php echo $jsonPromoterData?>);
+			
+			var imagepath      = "http://franklin-umh.cs.umn.edu/UMassProject/images/";
+
+			function changeButton(){
+				var user    = $("#user_id").val();
+				var project = $("#project_id").val();
+				$.ajax({
+					url : '<?php echo $base_url?>index.php/plate_view/getPlateView',
+					type : 'post',
+					data : {
+						user_id: user,
+						project_id: project
+					},
+					success : function(answer){
+						promoterData = eval(answer);
+						var imagepath = "http://franklin-umh.cs.umn.edu/UMassProject/plate_view/";
+						var imagesuffix = "_plateview.png";
+						var i = 0;
+						var str = "";
+
+						for(i in promoterData){
+							var image = imagepath + promoterData[i].bait_id + "_" + user.toLowerCase() + "_" + project.toLowerCase() + imagesuffix;
+							str = str + promoterData[i].bait_id + "<img src='"+image+"' class='image' id='"+i+"'/><hr>"
+						}
+
+						$('#tableScroll').html(str);
+						
+						// now that we have loaded in the images prepare the images for clicking
+						prepareClick();
+					}
+				});
+			}
+			
+			function prepareClick(){
+				$('.image').click(function() {
+					index = parseInt($(this).attr('id'));
+					
+					$('#plate1view').html("<p><img src='" + imagepath + promoterData[index].image[0] + "' class='plateViewImage'/>PLATE: 1-4</p>");
+					$('#plate2view').html("<p><img src='" + imagepath + promoterData[index].image[1] + "' class='plateViewImage'/>PLATE: 5-8</p>");
+					$('#plate3view').html("<p><img src='" + imagepath + promoterData[index].image[2] + "' class='plateViewImage'/>PLATE: 9-12</p>");
+					$('#plateDescription').html("bait name: " + promoterData[index].bait_id);
+					$('#promoter-hidden-value').html('<input type="hidden" id="promoter" name="promoter" value="'+promoterData[index].bait_id+'" />');
+					$('#fullImage').html("");
+					$('#fullDescription').html("");
+					
+					// Set up click event.
+					$(".plateViewImage").click(function() {
+						image = $(this).attr('src');
+						
+						$('#fullImage').html("<img src='" + image + "' class='fullViewImage' />");
+						$('#fullDescription').html(image);
+					});
+				});
+			}
+
+			$(document).ready(function() {
+				prepareClick();
+			});
+		
+		
+		</script>
+	</head>
+	<body>
+		<div id="head">
+			
+			<div class="user_session_controls">
+				
+				<?php
+					if($this->session->userdata('is_logged_in') == false){
+						echo '
+						<FORM METHOD="LINK" ACTION="'.$base_url.'index.php/login/" class="alignright">
+						<INPUT TYPE="submit" VALUE="Login">
+						</FORM>
+						';
+					} else {
+						echo '
+						<FORM METHOD="LINK" ACTION="'.$base_url.'index.php/login/logout/" class="alignright">
+						<INPUT TYPE="submit" VALUE="Logout">
+						</FORM>
+						';
+					}
+				?>
+				<FORM METHOD="LINK" ACTION="<?php echo $base_url?>" class='alignright'>
+					<INPUT TYPE="submit" VALUE="Back to Homepage">
+				</FORM>
+				
+			</div>
+			<button type="button" id="changeButton" class="alignright" onClick="changeButton()">Change Project </button> 
+			
+				
+				<form action="<?php echo $base_url?>index.php/data/" method="post">
+					
+					<span id="user_project_controls">
+					
+						<span id="project_controls" >
+							<select id="project_id" name="project_id" class="alignright"></select>
+						</span>
+						<span id="user_controls" >
+							<select id="user_id" name="user_id" class="alignright"></select>
+						</span>
+						
+					</span>
+					
+					<span id="promoter-hidden-value">
+						<input type="hidden" id="promoter" name="promoter" value="" />
+					</span>
+					
+					<input type="submit" value="Browse Interactions" />
+					
+				</form>
+			
+			
+		</div>
+		<div class="background">
+			<div id="tableScroll"></div>
+			<div id="plateview">
+				<div id="plate1view"></div>
+				<div id="plate2view"></div>
+				<div id="plate3view"></div>
+				<div id="plateDescription"></div>
+			</div>
+			<div id="fullview">
+				<div id="fullImage"></div>
+				<div id="fullDescription"></div>
+			</div>
+		</div>	 
+	</body>
+</html>

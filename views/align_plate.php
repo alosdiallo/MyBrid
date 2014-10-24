@@ -1,0 +1,469 @@
+<?php 
+$base_url = base_url();
+?>
+
+<html>
+	<head>    
+		<title>MyBrid</title>
+		<!-- CSS FILES -->
+		<link href="<?php echo $base_url?>css/universal.css" rel="stylesheet" type="text/css">
+		<link href="<?php echo $base_url?>css/jquery.ui.all.css" rel="stylesheet" type="text/css">
+		<link href="<?php echo $base_url?>css/slideshow.css" rel="stylesheet" type="text/css">
+		<link href="<?php echo $base_url?>css/results.css" rel="stylesheet" type="text/css">
+
+		<!-- JAVASCRIPT FILES -->
+		<script>
+			var base_url = "<?php echo $base_url?>";
+			var userMem = "<?php echo $this->session->userdata('user_mem')?>";
+			var projectMem = "<?php echo $this->session->userdata('project_mem')?>";
+		</script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery-1.6.2.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.core.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.widget.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.position.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ui.autocomplete.js"></script>
+		<!--script type="text/javascript" src="<?php echo $base_url?>javascript/array_unique.js"></script-->
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/project_control.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/wz_jsgraphics.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/overlay_highlights.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/jquery.ad-gallery.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/dimensions.js"></script>
+		<script type="text/javascript" src="<?php echo $base_url?>javascript/memorizeRawProject_ajax.js"></script>
+		
+
+
+		<script type="text/javascript"> 
+			// Get the X or Y pixel position
+			function getY( oElement ){
+				var iReturnValue = 0;
+				while( oElement != null ) {
+					iReturnValue += oElement.offsetTop;
+					oElement = oElement.offsetParent;
+				}
+				return iReturnValue;
+			}
+			function getX( oElement ){
+				var iReturnValue = 0;
+				while( oElement != null ) {
+					iReturnValue += oElement.offsetLeft;
+					oElement = oElement.offsetParent;
+				}
+				return iReturnValue;
+			}
+		</script>
+		<script>
+		
+			function setupHighlights(){
+				align1Graphics = new jsGraphics('align1light');
+				align2Graphics = new jsGraphics('align2light'); 
+				fullAlignGraphics = new jsGraphics('fullalignlight'); 
+				
+				//////
+				// Any drawings which have standardized settings should have those settings go here
+				//////
+
+				align1Graphics.setColor('pink');
+				align1Graphics.setStroke(2);
+
+				align2Graphics.setColor('cyan');
+				align2Graphics.setStroke(2);
+
+				fullAlignGraphics.setColor('yellow');
+				fullAlignGraphics.setStroke(2);
+			}
+				
+			function setupMouseEvents(){
+				align_1_X = -1; align_1_Y = -1;
+				align_2_X = -1; align_2_Y = -1;
+				
+				curAlign = 0;
+				
+				/*
+				var mouseLocationX = e.pageX - dims.pX;
+				var mouseLocationY = e.pageY - dims.pY;
+				*/
+				$("#curimg").mouseup(function(e){
+					// imgOffsets[0] = imgPosX
+					// imgOffsets[1] = imgPosY
+					
+					var mouseLocationX = e.offsetX?(e.offsetX):e.pageX-document.getElementById("curimg").offsetLeft;
+					var mouseLocationY = e.offsetY?(e.offsetY):e.pageY-document.getElementById("curimg").offsetTop;
+					
+					memorizeAlign(mouseLocationX, mouseLocationY, curAlign);
+					drawAlign(mouseLocationX, mouseLocationY, curAlign);
+
+					
+					
+					
+				
+					//alert("MOUSECLICKED!" + mouseLocationX + "..." + mouseLocationY);
+				});
+			}
+		</script>
+		<script>	
+			// Alignment functions
+			var DOT_SIZE = 8; // better if even
+			function drawAlign(x, y, number){
+				if(number == 1){
+					align1Graphics.clear();
+					align1Graphics.drawEllipse(getX(document.getElementById("curimg"))+x-(DOT_SIZE/2), getY(document.getElementById("curimg"))+y-(DOT_SIZE/2), DOT_SIZE, DOT_SIZE);
+					align1Graphics.paint();
+				} else if(number == 2){
+					align2Graphics.clear();
+					align2Graphics.drawEllipse(getX(document.getElementById("curimg"))+x-(DOT_SIZE/2), getY(document.getElementById("curimg"))+y-(DOT_SIZE/2), DOT_SIZE, DOT_SIZE);
+					align2Graphics.paint();
+				}
+			}
+			
+			function memorizeAlign(x, y, number){
+				if(number == 1){
+					align_1_X = x;
+					align_1_Y = y;
+					changeCurAlign(2);
+					saveAlignment(0);
+				} else if(number == 2){
+					align_2_X = x;
+					align_2_Y = y;
+					changeCurAlign(1);
+					saveAlignment(0);
+				}
+				if($('#alwaysUseAlignment').attr('checked')){
+					drawFullAlignment();
+				}
+			}
+			
+			
+			function changeCurAlign(val){
+				curAlign = val;
+				$('#message').html("Please set align for "+val);
+			}
+				
+			
+			
+			COLONIES_X = 48; 
+			COLONIES_Y = 32;
+			ALIGN_DOT_SIZE = 4;
+			function drawFullAlignment(){
+				if(align_1_X != -1 && align_1_Y != -1 && align_2_X != -1 && align_2_Y != -1){
+					fullAlignGraphics.clear();
+					colony_X_align = (align_2_X - align_1_X) / 47;
+					colony_Y_align = (align_2_Y - align_1_Y) / 47;
+					for(var x = 0; x < COLONIES_X; x++){
+						for(var y = 0; y < COLONIES_Y; y++){
+							//xPos = x * colony_X_align - y * colony_Y_align + align_1_X;
+							//yPos = y * colony_X_align + x * colony_Y_align + align_1_Y; 
+							xPos = x * colony_X_align + align_1_X;
+							yPos = y * colony_X_align + (align_1_Y + align_2_Y)/2; 
+							fullAlignGraphics.drawEllipse(getX(document.getElementById("curimg"))+xPos-(ALIGN_DOT_SIZE/2), getY(document.getElementById("curimg"))+yPos-(ALIGN_DOT_SIZE/2), ALIGN_DOT_SIZE, ALIGN_DOT_SIZE);
+						}
+					}
+				
+				
+					fullAlignGraphics.paint();
+				}
+			}
+			
+			function clearFullAlignment(){
+				fullAlignGraphics.clear();
+			}
+			
+			function clearAllAlignments(){
+				align1Graphics.clear();
+				align2Graphics.clear();
+				fullAlignGraphics.clear();
+				changeCurAlign(1);
+				align_1_X = -1; align_1_Y = -1;
+				align_2_X = -1; align_2_Y = -1;
+				
+				
+			}
+			
+			function saveAlignment(showErrors){
+				if(align_1_X != -1 && align_1_Y != -1 && align_2_X != -1 && align_2_Y != -1){
+					$.ajax({
+						url : '<?php echo $base_url?>index.php/align_plate/saveAlignment',
+						type : 'post',
+						data : {
+							align_1_X: align_1_X,
+							align_1_Y: align_1_Y,
+							align_2_X: align_2_X,
+							align_2_Y: align_2_Y,
+							image: currentImage,
+							project: currentProject
+						},
+						success : function(answer){
+							if(answer == "LOGGED OUT"){window.location.href=window.location.href;}
+							if(answer == "LOW PERMISSION"){alert("You don't have permission to do this");}
+							if(answer == "Success"){
+								$("#message").html("You have successfully saved the alignment.");
+							}
+						}
+					});
+				} else {
+					if(showErrors == 1){
+						alert("Alignment is not fully set.");
+					}
+				}
+			}
+		</script>
+		<script>
+			var currentProject = "";
+
+			// When the window loads check to see if there is a saved location.
+			window.onload = function () {
+				// do stuff here
+				setupMouseEvents();
+				setupHighlights();
+				setFolder();
+			}
+
+			function setFolder(){
+				project = $('#folder-select').val();
+				if(project == ""){
+					alert("You must select a project to view.");
+				} else {
+					$.ajax({
+						url : '<?php echo $base_url?>index.php/align_plate/getRawImagesAsArray',
+						type : 'post',
+						data : {
+							project: project,
+						},
+						success : function(answer){
+							if(answer == "LOGGED OUT"){window.location.href=window.location.href;}
+							if(answer == "LOW PERMISSION"){alert("You don't have permission to do this");}
+							images = eval(answer);
+							setupRawImageSelect(images);
+							currentProject = project;
+							gotoNextImage();
+							setImage();
+							
+						}
+					});
+					memorizeRawProject_ajax(project);
+				}
+			}
+			
+			function setImage(){
+				image = $('#image-select').val();
+				if(image == ""){
+					str = '<p>This is the plate alignment utility. The purpose of this utility is to set up alignments for plates to use the manual Spot-On calling system.</p><p>This is the beginning of the project, please select a raw image from the second selection box or click on next or previous image to continue.</p>'
+				} else {
+					str = '<img id="curimg" src="http://franklin-umh.cs.umn.edu/UMassProject/raw_images/'+currentProject+'/images/'+image+'" />';
+					var count = 0;
+					function updateImage()
+					{
+						if(newImage.complete) {
+							document.getElementById("theText").src = newImage.src;
+							newImage = new Image();
+							number++;		
+							
+						}
+						setTimeout(updateImage, 1000);
+					}
+				
+				}
+				
+				$('#picture').html(""+str);
+				setupMouseEvents();
+				showControlsForAlignment();
+				clearAllAlignments();
+				currentImage = image;
+			}
+			
+			function setupRawImageSelect(images){
+				htmlstr = '<select id="image-select"><option value="">Please Select a Raw Image</option>';
+				for(i in images){
+					htmlstr = htmlstr + '<option value="'+images[i]+'">'+images[i]+'</option>';
+				}
+				htmlstr = htmlstr + '</select><button type="button" onClick="setImage()">View</button>';
+				$('#image-controls').html(""+htmlstr);
+				$('#picture').html("");
+				hideControlsForAlignment();
+				clearAllAlignments();
+			}
+			
+			function hideControlsForAlignment(){
+				$('#controls').hide();
+			}
+			function showControlsForAlignment(){
+				$('#controls').show();
+			}
+			
+			function gotoNextImage(){
+				$('#image-select > option:selected').removeAttr('selected').next('option').attr('selected', 'selected');
+				setImage();
+			}
+			
+			//Made by Alos
+			function old_camera(){
+				image = $('#image-select').val();
+				var x;
+				var r=confirm("Are you sure you would like to crop that image?");
+				if (r==true){
+				
+					$.ajax({
+						url : '<?php echo $base_url?>index.php/align_plate/oldImage',
+						type : 'post',
+						data : {
+							project: project,
+							image:image
+						},
+						success : function(answer){
+							if(answer == "LOGGED OUT"){window.location.href=window.location.href;}
+							if(answer == "LOW PERMISSION"){alert("You don't have permission to do this");}
+							$("#response").html($("#response").html()+"Old Camera Script Complete..."+"<br>");
+							gotoNextImage();
+
+							
+						}
+					});	
+				}
+				else
+				{
+				  alert("The image has not been deleted.");
+				}
+			}
+			function new_camera(){
+				image = $('#image-select').val();
+				var x;
+				var r=confirm("Are you sure you would like to crop that image?");
+				if (r==true){
+				
+					$.ajax({
+						url : '<?php echo $base_url?>index.php/align_plate/newImage',
+						type : 'post',
+						data : {
+							project: project,
+							image:image
+						},
+						success : function(answer){
+							if(answer == "LOGGED OUT"){window.location.href=window.location.href;}
+							if(answer == "LOW PERMISSION"){alert("You don't have permission to do this");}
+							$("#response").html($("#response").html()+"New Camera Script Complete..."+"<br>");
+							gotoNextImage();
+							
+						}
+					});	
+				}
+				else
+				{
+				  alert("The image has not been deleted.");
+				}
+			
+			}
+			function delete_image(){
+				image = $('#image-select').val();
+				var x;
+				var r=confirm("Are you sure you would like to delete that image?");
+				if (r==true){
+				
+					$.ajax({
+						url : '<?php echo $base_url?>index.php/align_plate/DeleteRawImage',
+						type : 'post',
+						data : {
+							project: project,
+							image:image
+						},
+						success : function(answer){
+							if(answer == "LOGGED OUT"){window.location.href=window.location.href;}
+							if(answer == "LOW PERMISSION"){alert("You don't have permission to do this");}
+							$("#response").html(answer);
+							gotoNextImage();
+							
+						}
+					});	
+				}
+				else
+				{
+				  alert("The image has not been deleted.");
+				}
+				
+			}
+			function gotoPreviousImage(){
+				if($('#image-select > option:selected').prev('option').length){
+					$('#image-select > option:selected').removeAttr('selected').prev('option').attr('selected', 'selected');
+				} else {
+					$('#image-select > option:selected').removeAttr('selected');
+					$("#image-select > option:last").attr('selected', 'selected');
+				}
+				
+				setImage();
+			}
+			
+
+		</script>
+	</head>
+	<body>
+		<div id="head" class="medium-padding" style="height: 20px;">
+			<div id="session_controls" class="alignright">
+				<span id="user_session_controls">
+					<FORM METHOD="LINK" ACTION="<?php echo $base_url?>index.php/login/logout/" class="alignright">
+						<INPUT TYPE="submit" VALUE="Logout">
+					</FORM>
+					<FORM METHOD="LINK" ACTION="<?php echo $base_url?>" class="alignright">
+						<INPUT TYPE="submit" VALUE="Back to Homepage">
+					</FORM>
+				</span>
+			</div>
+			<span id="user_project_controls">
+				<span id="project_controls" >
+					<select id="project_id" name="project_id" class="alignright"></select>
+				</span>
+				<span id="user_controls" >
+					<select id="user_id" name="user_id" class="alignright"></select>
+				</span>
+			</span>
+		</div>
+		<div id="rawUploadNavigation">
+			<button type="button" onclick="window.location.href='../raw_upload/'">STEP 1: Create Project and Raw Upload</button>
+			<button type="button" onclick="window.location.href='../align_plate/'">STEP 2: Align Plate</button>
+			<button type="button" onclick="window.location.href='../utilities/'">STEP 3: Run Utilities</button>
+			<button type="button" onclick="window.location.href='../quality_control/'">STEP 4: Quality Control</button>
+			<button type="button" onclick="window.location.href='../final_upload/'">STEP 5: Send to Production</button>
+			<button type="button" onclick="window.location.href='../delete_project/'">STEP 6: Delete Project</button>
+		</div>
+		<div id="folder-controls" class='large-padding'>
+			<select id="folder-select">
+				<option value="">Please Select a Raw Image Project</option>
+				<?php
+					$directory = '/heap/UMassProject/raw_images/';
+					$raw_image_folders = array_diff(scandir($directory), array('..', '.'));
+					
+					foreach($raw_image_folders as $raw_project){
+						echo "<option value ='$raw_project'";
+						if($raw_project == $this->session->userdata('rawProject')){ echo " selected='selected'";}
+						echo ">$raw_project</option>";
+					}
+				?>
+				<!--option value="test">Test</option-->
+			</select>
+			<button type="button" onClick="setFolder()">View</button>
+		</div>
+		<div id="image-controls" class="large-padding"></div>
+		<div id='picture-highlights' class='large-padding'>
+			<div id="align1light"></div>
+			<div id="align2light"></div>
+			<div id="fullalignlight"></div>
+		</div>
+		<div id='controls' class='large-padding' style="display: none;">
+			<input type="checkbox" id="alwaysUseAlignment" /> Always Show Alignment<br />
+			<button type="button" onclick='changeCurAlign(1)'>Change Alignment 1 (Top Left)</button>
+			<button type="button" onclick='changeCurAlign(2)'>Change Alignment 2 (Top Right)</button>
+			<button type="button" onclick='drawFullAlignment();'>View Alignment</button>
+			<button type="button" onclick='clearFullAlignment();'>Hide Alignment</button>
+			<button type="button" onclick='saveAlignment(1);'>Save Alignment</button>
+			<button type="button" onclick='gotoPreviousImage();'>Previous Image</button>
+			<button type="button" onclick='gotoNextImage();'>Next Image</button>
+			<button type="button" onclick='delete_image();'>Delete Image</button>
+			<button type="button" onclick='old_camera();'>Old Camera Crop</button>
+			<button type="button" onclick='new_camera();'>New Camera Crop</button>
+			<div id='message'>Please select what you want to align first</div>
+		</div>
+
+		<div id='picture' class='large-padding'>
+			<!--img id='curimg' src='http://franklin-umh.cs.umn.edu/UMassProject/images/1075_B02_1-4_5mM_3AT_Xgal_7d_W.cropped.resized.grey.png' /-->
+		</div>
+		
+		
+	</body>                                                                
+</html>

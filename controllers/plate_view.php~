@@ -1,0 +1,67 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+
+class Plate_View extends CI_Controller{
+	
+	public function __construct(){
+		parent::__construct();
+	}
+	
+	public function index(){
+		$this->load->helper('url');
+		$this->load->helper('html');
+		$this->load->model('Data_Model');
+		$this->load->model('Config_Model');
+		$this->Config_Model->checkLogin();
+		
+		$ids = array("userId"=>"jnelson", "projectId"=>"project1");
+		$promoter = "";
+		/*
+		 * Grab the promoter Data for all Plates
+		 */
+		$queryData['promoter'] = $promoter;
+		$queryData['userId'] = "jnelson";
+		$queryData['projectId'] = "project1";
+		$queryData['promoterSearch'] = true;
+		$promoterData = $this->Data_Model->getPromoterData($queryData);
+		
+		/*
+		 * Set pictures, USE ALL PICTURES = TRUE
+		 */
+		$this->Data_Model->setPictures($promoterData, "jnelson", "project1", TRUE);
+		
+		/*
+		 * Alright, we have the data we need, load up the view
+		 */
+		$loadData['promoterData'] = $promoterData;
+		$this->load->view('plate_view', $loadData);
+	}
+
+	public function getPlateView(){
+		/*
+		 * open up some things
+		 */
+		$this->load->model('Data_Model');
+		$this->load->model('Config_Model');
+		$this->Config_Model->checkLogin();
+
+		$userId    = $this->input->post('user_id');
+		$projectId = $this->input->post('project_id');
+
+		/*
+		 * Grab the promoter Data for all Plates
+		 */
+		$queryData['promoter'] = "";
+		$queryData['userId'] = $userId;
+		$queryData['projectId'] = $projectId;
+		$queryData['promoterSearch'] = true;
+
+		/*
+		 * Set pictures, USE ALL PICTURES = TRUE
+		 */
+		$this->Data_Model->setPictures($promoterData, $userId, $projectId, TRUE);
+		echo json_encode($promoterData);
+	}
+
+
+}

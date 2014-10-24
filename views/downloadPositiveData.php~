@@ -1,0 +1,122 @@
+<?php 
+$base_url = base_url();
+?>
+<html>
+<head>
+<title> Download all the Positive Data </title>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js"></script>
+<script type="text/javascript" src="<?php echo $base_url?>javascript/project_control.js"></script>
+
+<style type="text/css">
+.alignleft {
+	float: left;
+}
+.alignright {
+	float: right;
+}
+</style>
+<script type="text/javascript">
+//////
+// Define base url for project control
+//////
+var base_url = "<?php echo $base_url?>"; 
+var userMem = "<?php echo $this->session->userdata('user_mem')?>";
+var projectMem = "<?php echo $this->session->userdata('project_mem')?>";
+
+function downloadFile(){
+	var userId           = $('#user_id').val();
+	var projectId        = $('#project_id').val();
+
+	 $("#loader").html('<img src="<?php echo $base_url?>images/loader.gif"/>');
+	 
+	 $.ajax({
+		url : '<?php echo $base_url?>index.php/downloadPositiveData/downloadAll',
+		type : 'post',
+		data : {
+			user_id    : userId,
+			project_id : projectId
+		},
+		success : function(answer){	
+			if(answer == "error"){
+				alert("file does not exist");
+			} else{
+				var url = eval(answer);
+				//alert(url);
+				window.location.href = url;
+			}
+			$("#loader").empty();
+		}
+	});
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 /*
+	 // Make Ajax call
+	 $("#content").load('<?php echo $base_url?>index.php/downloadPositiveData/downloadAll', function(answer){
+		 		
+			if(answer == "error"){
+				alert("file does not exist");
+			} else{
+				var url = eval(answer);
+				//alert(url);
+				window.location.href = url;
+			}
+			$("#loader").empty();
+		 }); 
+		 */
+}
+</script>
+</head>
+
+<body>
+<div id='download'>
+	<div class="user_session_controls">
+		<?php
+			if($this->session->userdata('is_logged_in') == false){
+					echo '
+					<FORM METHOD="LINK" ACTION="'.$base_url.'index.php/login/" class="alignright">
+						<INPUT TYPE="submit" VALUE="Login">
+					</FORM>
+					';
+			  }
+			  else{
+					echo '
+					<FORM METHOD="LINK" ACTION="'.$base_url.'index.php/login/logout/" class="alignright">
+						<INPUT TYPE="submit" VALUE="Logout">
+					</FORM>
+					';
+			  }
+		?>
+		<FORM METHOD="LINK" ACTION="<?php echo $base_url?>" class='alignright'>
+			<INPUT TYPE="submit" VALUE="Back to Homepage">
+		</FORM>
+		<!--Project Control Divs-->
+		<span id="user_project_controls">
+			<span id="user_controls" >
+				<select id="user_id" name="user_id" class="alignright"></select>
+			</span>
+			<span id="project_controls" >
+				<select id="project_id" name="project_id" class="alignright"></select>
+			</span>
+		</span>
+		<!--End Project Control Divs-->
+	</div>
+	
+	<div id='content'>
+		<p>
+			Click here to download the data file in .csv format. This may take a while depending on how much data is present.
+		</p><p>
+			Make sure that you have the correct project selected in the upper right hand corner.
+		</p>
+	</div>
+	<input id='btnLoad' type='button' name='filedownload' value='download' onclick='downloadFile();'></input>
+	<div id='loader'></div>
+</div>
+
+</body>
+</html>

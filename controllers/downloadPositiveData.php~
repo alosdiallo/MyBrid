@@ -1,0 +1,73 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+
+/*
+ * main controller of the website
+ * defines the main Class, UMassProject
+ * 
+ * class written by Philippe Ribeiro
+ * June 24th, 2011
+ */
+class DownloadPositiveData extends CI_Controller {
+
+	private $time;
+	private $file;
+	private $header = array('Plate Name', 'Array Coord', 'Orf Name', 'Orf Name 2', 'WB Gene', 'Common Name', 'Info', 'Plate Median', 'Positives', 'Original Intensity', 'RC Intensity', 'PTP Intensity', 'Z-Score', 'Z-Prime', 'User', 'Project');
+
+	public function __construct(){
+		parent::__construct();
+		$this->load->model('Download_Model');
+		$this->time = date('Y-m-d_H:i:s');
+		$this->file = '/heap/UMassProject/downloads/avg_data' . $this->time . '.csv';
+		
+
+	}
+	
+	private function createFile($data){
+		
+		$fp = fopen($this->file, 'w');
+		//print_r($data);
+		fputcsv($fp, $this->header, chr(44));		
+		//writes the intermatrix to the file in .csv format
+		//fputcsv($fp, $data, chr(44));
+		
+		foreach($data as $line){
+				if($line){
+					//fputcsv($fp, (array)$line[0], chr(44));
+					fputcsv($fp, (array)$line, chr(44));
+				}
+		}
+		
+		chmod($this->file, 0777);
+		fclose($fp);
+	}
+	
+	public function index(){
+		$this->load->view('downloadPositiveData.php');
+	}
+	
+	public function downloadAll(){
+		$userId    = stripslashes( $this->input->post('user_id')            );
+		$projectId = stripslashes( $this->input->post('project_id')         );
+		
+		// Get the Data
+		$data = $this->Download_Model->getAllPositive($userId, $projectId);
+		
+		$this->createFile($data);
+		
+		if(file_exists($this->file)){
+			$url = 'http://franklin-umh.cs.umn.edu/UMassProject/downloads/avg_data' . $this->time . '.csv';
+			echo json_encode($url);
+		}
+		else{
+			echo json_encode(false);
+		}
+	}
+	
+	public function mocktest(){
+		echo json_encode('helloworld');
+	}
+	
+}
+
+?>

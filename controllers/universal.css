@@ -1,0 +1,13 @@
+* {
+    color: #333333;
+    font-family: "Lucida Grande","Lucida Sans Unicode","Lucida Sans",Verdana,Arial,sans-serif;
+    line-height: 140%;
+}
+
+#head {
+    background-color: #2E9AFE;
+    font-family: 'Courier New',Courier,'Times New Roman';
+    font-size: 115%;
+    margin: -7px -7px 49px;
+    padding: 20px;
+}

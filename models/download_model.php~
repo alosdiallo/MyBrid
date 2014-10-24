@@ -1,0 +1,146 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+	
+class Download_Model extends CI_Model{
+
+	private $default_z_score = 2.05;
+
+	private $promoterTable      = "";
+	private $transcriptionTable = "";
+	private $interactionTable   = "";
+	private $imageTable         = "";
+	public function __construct(){
+		parent::__construct();
+		$this->load->model('Config_Model');
+		$this->promoterTable      = $this->Config_Model->getPromoterTable();
+		$this->transcriptionTable = $this->Config_Model->getTranscriptionTable();
+		$this->interactionTable   = $this->Config_Model->getInteractionTable();
+		$this->imageTable         = $this->Config_Model->getImageTable();
+	}
+		
+		public function getData($tf_list, $userId, $projectId){
+		
+				$data = array();
+				
+				foreach($tf_list as $transcriptor){
+					
+						$result = $this->getAverageData($transcriptor, $userId, $projectId, $this->default_z_score);
+						if(count($result) != 0){
+							$data[] = $result;
+						}
+				}
+				
+				return $data;
+		}
+		
+		/*
+		 * function getAllPositives
+		 * 
+		 * makes a list from the query result obtained from the 
+		 * getAllTF function, storing them in an array
+		 * 
+		 * @access : public
+		 * @param: void
+		 * @return : array (objects)
+		 * 
+		 */
+		public function getAllPositive($userId, $projectId, $zScore){
+			$str = "SELECT DISTINCT Interactions.plate_name, Interactions.array_coord, TranscriptorFactor.orf_name, TranscriptorFactor.orf_name2, TranscriptorFactor.wb_gene, TranscriptorFactor.common_name, TranscriptorFactor.info, Interactions.plate_median, COUNT(*), AVG(orig_intensity_value), AVG(rc_intensity_value), AVG(ptp_intensity_value), AVG(Interactions.z_score), AVG(Interactions.z_prime), Interactions.user_id, Interactions.project_id FROM Interactions, TranscriptorFactor WHERE Interactions.array_coord = TranscriptorFactor.coordinate AND Interactions.user_id = '".$userId."' AND Interactions.project_id = '".$projectId."' AND Interactions.modified_call = 'Positive' GROUP BY Interactions.plate_name, Interactions.array_coord";
+			$data = $this->makeQuery($str);
+			//print_r($data);
+			return $data;
+		
+		
+			/*
+			$data = array();
+			
+			$tf_list = $this->getAllTF();
+			
+			foreach($tf_list as $tf){
+				array_push($data, $this->getAverageData($tf->transcriptor_factor, $userId, $projectId, $zScore));
+			}
+			
+			return $data;
+			*/
+		}
+		
+		/*
+		 * function getAllTF
+		 * 
+		 * retrives a list containing all the transcriptor factors
+		 * presented on the database;
+		 * 
+		 * @access : private
+		 * @param: void
+		 * @return : array (objets)
+		 */
+		private function getAllTF(){
+			$str = "SELECT DISTINCT transcriptor_factor FROM $this->interactionTable  WHERE call_type='Positive'";
+			return $this->makeQuery($str);
+		}
+		
+		/*
+		 * function getAverageData
+		 * given the transcriptor passed in by the user, it uses that 
+		 * value in the search for the average results
+		 * 
+		 * @access : public
+		 * @param : String
+		 * @return : array (objects) 
+		 * 
+		 */
+		 
+		public function getAverageData($transcriptor, $userId, $projectId, $zScore){
+			
+			$str = "SELECT plate_name, array_coord, transcriptor_factor, orf_name, bleed_over, COUNT(*) as count, 
+					TRUNCATE(avg(orig_intensity_value), 3) as avg_orig_intensity_value, 
+					TRUNCATE(avg(rc_intensity_value), 3) as avg_rc_intensity_value,
+					TRUNCATE(avg(ptp_intensity_value), 3) as avg_ptp_intensity_value, TRUNCATE(avg(ptp_intensity_value), 3) as avg_ptp_intensity_value, 
+					TRUNCATE(avg(z_score), 3) as avg_zscore 
+					FROM $this->interactionTable
+					WHERE (transcriptor_factor = '$transcriptor' 
+					    OR orf_name = '$transcriptor') 
+					    AND call_type = 'Positive' 
+					    AND z_score >= $zScore
+					    AND user_id = '$userId'
+					    AND project_id = '$projectId'
+					group by plate_name, array_coord, transcriptor_factor, orf_name, bleed_over;";
+			
+			return $this->makeQuery($str);
+		}
+		/*
+		 * function makeQuery
+		 * 
+		 * takes a sql string and executes the query
+		 * returns false if the query is invalid or num_rows == 0
+		 * else append the $row result to $data array.
+		 * 
+		 * @access : private
+		 * @param: $string (SQL query)
+		 * @return : array (Objects)
+		 * 
+		 */
+		private function makeQuery($string){
+			
+			$data = array();
+			if( !$this->Config_Model->checkLogin() ) {return array();}
+			$query = $this->db->query($string);
+			
+			if(!$query || $query->num_rows() == 0){
+				return false;
+			}
+			
+			foreach($query->result() as $row){
+				
+					if(count($row) == 0){
+						continue;
+					}
+					$data[] = $row;
+			}
+			
+			return $data;
+		}
+		
+}
+
+?>

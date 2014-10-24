@@ -1,0 +1,44 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed\n');
+
+class Autocomplete_Model extends CI_Model{
+
+	public function __construct(){
+		parent::__construct();
+	}
+	
+	public function getPromoters($promoter){
+		
+		$str = "SELECT DISTINCT plate_name FROM Insulin_Interactions_III WHERE plate_name LIKE '$promoter%'";
+		return $this->makeQuery($str);
+	}
+	
+	public function getArrayCoord($array_coord){
+		$str = "SELECT DISTINCT array_coord FROM Insulin_Interactions_III WHERE array_coord LIKE '$array_coord%'";
+		return $this->makeQuery($str);
+		
+	}
+	public function getTranscriptors($transcriptor){
+		
+		$str = "SELECT DISTINCT transcriptor_factor, orf_name FROM Insulin_Interactions_III WHERE transcriptor_factor LIKE '$transcriptor%' OR orf_name LIKE '$transcriptor%'";
+		return $this->makeQuery($str);
+	}
+	
+	private function makeQuery($str){
+		
+		$data = array();
+		
+		$query = $this->db->query($str);
+		
+		if(!$query || $query->num_rows() == 0){
+			return false;
+		}
+		
+		foreach($query->result() as $row){
+			$data[] = $row;
+		}
+		
+		return $data;
+	}
+}
+
+?>

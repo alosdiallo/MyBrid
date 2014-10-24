@@ -1,0 +1,703 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+include_once("datainfo.php");
+
+define("X_ELEMENTS", 48);
+define("Y_ELEMENTS", 32);
+	
+class Data_Model extends CI_Model{
+
+	/*
+	 * Table names to be used
+	 */
+	
+
+	private $pictures;
+	private $data;
+	
+	
+	private $promoterTable = "";
+	private $transcriptionTable = "";
+	private $interactionTable = "";
+	private $imageTable = "";
+	public function __construct(){
+		parent::__construct();
+		$this->load->model('Config_Model');
+		$this->promoterTable      = $this->Config_Model->getPromoterTable();
+		$this->transcriptionTable = $this->Config_Model->getTranscriptionTable();
+		$this->interactionTable   = $this->Config_Model->getInteractionTable();
+		$this->imageTable         = $this->Config_Model->getImageTable();
+		
+		$this->pictures = array();
+		$this->data = array();
+	}
+	
+	public function getPromoterTable()     { return $this->promoterTable      ;}
+	public function getTranscriptionTable(){ return $this->transcriptionTable ;}
+	public function getInteractionTable()  { return $this->interactionTable   ;}
+	public function getImageTable()        { return $this->imageTable         ;}
+
+	
+	
+	public function getMetaProjects($user, $project){
+		if( !$this->Config_Model->checkLogin() ) {return array();}
+		$query = $this->db->query("SELECT metausers, metaprojects FROM Projects WHERE user_id = '$user' AND project_id = '$project'");
+		
+		$user_arr = array();
+		$project_arr = array();
+		
+		if($query) {
+			if($query->num_rows() > 0){
+				foreach($query->result() as $row){
+					if(!$row->metaprojects || !$row->metausers){
+						$user_arr[] = $user;
+						$project_arr[] = $project;
+					} else {
+						$user_arr = explode(",", $row->metausers);
+						$project_arr = explode(",", $row->metaprojects);
+					}					
+				}
+			}
+		}
+		return array('users' => $user_arr, 'projects' => $project_arr);
+	}
+
+	
+	
+	
+	
+	
+	
+	
+	/*GET PROMOTER DATA
+	 * 
+	 * If you want to use a transcriptionFactor for the search you must do a getTranscriptionFactor search first and 
+	 * pipe the orf_name into this function as $loadData['transcriptionFactor']
+	 * 
+	 */
+	public function getPromoterData($loadData, $transcriptionData = null){
+		// If these are unset they must be set, default is false.
+		if( !isset($loadData['promoterSearch']    ) ) { $loadData['promoterSearch']    = false; }
+		if( !isset($loadData['interactionSearch'] ) ) { $loadData['interactionSearch'] = false; }
+		
+		$str = "SELECT DISTINCT "; 
+		//What are we searching? Promoters or Interactions?
+//		if($loadData['promoterSearch']){ 
+			$str .= "$this->promoterTable.*";
+//		}
+//		if($loadData['interactionSearch']){ 
+//			$str .= "$this->interactionTable.* ";
+//		} else { 
+//			$str .= "$this->interactionTable.plate_number ";
+//		}
+
+		if($loadData['promoterSearch']){
+			$str .= ", $this->interactionTable.plate_number ";
+		}
+
+
+
+
+
+		if( isset($loadData['zScore_ave']) ){
+			$str .=  ", MAX($this->interactionTable.z_score) AS z_score ";
+		}
+		if( isset($loadData['zPrime_ave']) ){
+			$str .=  ", MAX($this->interactionTable.z_prime) AS z_prime ";
+		}
+		$str .= "FROM ";
+		// WHAT AND WHERE
+		$needComma = false;
+		// Grab both tables even if only grabbing values from one, slightly inefficient but works for now.
+		$str .= "$this->promoterTable, $this->interactionTable ";
+		// Set the need for " AND " to false, NEED A WHERE OTHERWISE!
+		$needAnd = false;
+		// TABLE JOIN [if needed]
+		
+		$str .= "WHERE $this->interactionTable.plate_name = $this->promoterTable.bait_id ";
+		$needAnd = true;
+		
+		foreach($loadData as $key => $value){
+			
+			if($value != ''){
+				switch($key){
+					case 'plateNumber':
+						if($loadData['ALL'] != "TRUE"){
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.plate_number = '$value' ";
+							$needAnd = true;
+						}
+						break;
+					case 'transcriptionFactor':
+						if($loadData['ALL'] != "TRUE"){
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.array_coord = '$value' ";
+							$needAnd = true;
+						}
+						break;
+					case 'promoter':
+						if($loadData['ALL'] != "TRUE"){
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "( $this->promoterTable.bait_id    = '$value' OR 
+									   $this->promoterTable.bait_name  = '$value' OR 
+									   $this->promoterTable.bait_name2 = '$value' OR 
+									   $this->promoterTable.bait_name3 = '$value' ) ";		// END OR STATEMENT
+							$needAnd = true;
+						}
+						break;
+					case 'positive':
+							if($value == "true" || $value == "True" || $value == "TRUE"){
+								if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+								$str .= "$this->interactionTable.modified_call = 'Positive' ";
+								$needAnd = true;
+							}
+						break;
+					case 'userId':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->promoterTable.user_id = '$value' ";
+							$needAnd = true;
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.user_id = '$value' ";
+							
+						break;
+					case 'projectId':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->promoterTable.project_id = '$value' ";
+							$needAnd = true;
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.project_id = '$value' ";
+							
+						break;
+					case 'zScore_min':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.z_score > $value";
+							$needAnd = true;
+						break;
+					case 'zScore_max':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.z_score < $value";
+							$needAnd = true;
+						break;
+					case 'zPrime_min':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.z_prime > $value";
+							$needAnd = true;
+						break;
+					case 'zPrime_max':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.z_prime < $value";
+							$needAnd = true;
+						break;
+					case 'origIntensity_min':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.orig_intensity_value > $value";
+							$needAnd = true;
+						break;
+					case 'origIntensity_max':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.orig_intensity_value < $value";
+							$needAnd = true;
+						break;
+					case 'rcIntensity_min':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.rc_intensity_value > $value";
+							$needAnd = true;
+						break;
+					case 'rcIntensity_max':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.rc_intensity_value < $value";
+							$needAnd = true;
+						break;
+					case 'ptpIntensity_min':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.ptp_intensity_value > $value";
+							$needAnd = true;
+						break;
+					case 'ptpIntensity_max':
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							$str .= "$this->interactionTable.ptp_intensity_value < $value";
+							$needAnd = true;
+						break;
+					case 'bleedover':
+						if($value == "true" || $value == "True" || $value == "TRUE"){
+							if($needAnd) {$str .= " AND ";} else {$str .= " WHERE ";}
+							if($value == TRUE){$str .= "bleed_over = 'BO'";}
+							$needAnd = true;
+						}
+						break;
+				}
+			}
+		}
+		$useAnd = false;
+		if(isset($loadData['zScore_ave']) || isset($loadData['zPrime_ave'])){
+			$str .= "GROUP BY $this->promoterTable.bait_id, $this->interactionTable.plate_number ";
+			$str .= "HAVING ";
+			if(isset($loadData['zScore_ave'])){
+				$str .= "z_score > " . $loadData['zScore_ave'];
+				$useAnd = true;
+			}
+			if(isset($loadData['zPrime_ave'])){
+				if($useAnd){$str .= "AND ";}
+				$str .= "z_prime > ".$loadData['zPrime_ave'];
+				$useAnd = true;
+			}
+		}
+		
+		if($loadData['promoterSearch']){
+			$str .= " ORDER BY $this->interactionTable.plate_name";
+		}
+		//print_r($transcriptionData);
+		//echo $str;
+		return $this->makeQuery($str, $transcriptionData);
+	}
+	
+	/*
+	 * 
+	 */
+	public function getTranscriptionFactorData($transcriptionFactor, $user, $project){
+		if( !$this->Config_Model->checkLogin() ) {return array();}
+		
+		// GRAB THE APPROPRIATE TF LIST
+		$query = $this->db->query("SELECT tf_list FROM Projects WHERE user_id = '$user' AND project_id = '$project'");
+		if($query){ // IS VALID QUERY
+			if($query->num_rows() > 0){ // QUERY HAS RESULTS
+				foreach($query->result() as $row){ // ROWS = 1
+					if(isset($row->tf_list)){ // TF LIST IS SET
+						$list = $row->tf_list;
+					}
+				}
+			} else {return array();}
+		} else {return array();}
+		// END GRAB LIST
+		
+		$str = "SELECT * FROM $this->transcriptionTable WHERE list = '$list' AND (orf_name = '$transcriptionFactor' OR orf_name2 = '$transcriptionFactor' OR wb_gene = '$transcriptionFactor' OR common_name = '$transcriptionFactor' OR coordinate = '$transcriptionFactor' OR coordinate2 = '$transcriptionFactor' OR info = '$transcriptionFactor')";
+		
+	
+		$transcriptionData = $this->makeQuery($str);
+		return $transcriptionData;
+	}
+	
+	/*
+	 * Callback to make this function better.
+	 */
+	public function makeQuery($string, $transcriptionData = null){
+		$data = array();
+		$j=0;
+		/*
+		 * Make sure the user is logged in to access the database
+		 */
+		if( !$this->Config_Model->checkLogin() ) {return array();}
+		$query = $this->db->query($string);
+		
+		if(!$query)
+		{
+			return array();
+		}
+		else{
+			if($query->num_rows() > 0){
+			//print_r($query->result());
+				foreach($query->result() as $row){
+					//$data[] = $row;
+					//print_r($transcriptionData);
+					if(!isset($row->plate_number) && $transcriptionData != null){
+						foreach($transcriptionData as $tsfData){
+							//print_r($transcriptionData[1]);
+							//echo($tsfData[0]->plate_number);
+								$data[$j] = clone $row;
+								//$data[$j]->transcriptionData = $transcriptionData[$tsfData[0]->plate_number];
+								$data[$j]->transcriptionData = $transcriptionData[intval($tsfData[0]->plate_number)];
+								$data[$j]->plate_number = $tsfData[0]->plate_number;
+								$j++;
+						}
+					} else if (isset($row->plate_number) && $transcriptionData != null){
+						$data[$j] = clone $row;
+						$data[$j]->transcriptionData = $transcriptionData[$row->plate_number];
+						$j++;
+					} else {
+						$data[] = $row;
+					}
+					
+					
+				}
+			} else {
+				return array();
+			}
+		}
+		return $data;
+	}
+	
+	/*
+	*** setPictures
+	* will take the idbait from each element of the array and set
+	* a picture array which contains the pictures for that 
+	* timecourse
+	**/ 
+	public function getPictures($baits){
+		$pictures = array();
+		/*
+		 * Make sure the user is logged in to access the database
+		 */
+		if( !$this->Config_Model->checkLogin() ) {return array();}
+		
+		foreach($baits as $bait){	
+			$str = "SELECT * FROM $this->imageTable WHERE image LIKE '" . $bait . "%'";
+			
+			$data = $this->makeQuery($str);
+			if($data == false){
+				continue;
+			}
+			else{
+				array_push($pictures, $data);
+			}
+		}
+		
+		return $pictures;
+	}
+	
+	/*
+	*** setPictures
+	* &$data is a reference to the data (Array of associative arrays)
+	* will take the idbait from each element of the array and set
+	* a picture array which contains the pictures for that 
+	* timecourse
+	**/ 
+	
+	
+	/*
+	 * Sets the pictures
+	 * if unsuccessful return an error message
+	 */
+	public function setPictures(&$data, $getAllPictures = FALSE)
+	{
+		/*
+		 * Make sure the user is logged in to access the database
+		 */
+		if( !$this->Config_Model->checkLogin() ) {return array();}
+			
+		$list_tags = array(0=>"_1-4", 1=>"_5-8", 2=>"_9-12");	
+			
+		/*
+		 * Go through the plates and assign a picture to them
+		 */
+		foreach($data as &$id)
+		{		
+			
+			$str = "SELECT * FROM $this->imageTable WHERE user_id = '".$id->user_id."' AND project_id = '".$id->project_id."' AND image LIKE '" . $id->bait_id . "\_%' ORDER BY image ASC"; 
+
+			$query = $this->db->query($str);
+
+			if(!$query)
+			{
+				return "ERROR: " . $id->bait_id . "did not return a picture in Data_Model:setPictures."; 
+			} else {
+				if($query->num_rows() > 0)
+				{
+					/*
+					***
+					* Sets up an array that will contain the array
+					* of pictures and grab the pictures
+					**/
+					$arr = array();
+					
+					foreach($query->result() as $row)
+					{
+						$arr[] = $row->image;
+					}
+					
+					/*
+					***
+					* If get all pictures is flagged true, get the entire array
+					* else only get the relavant plateNumber
+					**/
+					if($getAllPictures){
+						$id->image = $arr;
+					} else {
+						//All transcription Factors should have the same plate at this point.
+						//print_r($id);
+						if(!isset($arr[$id->transcriptionData[0]->position['plate_num']])){
+							print_r($arr);
+						} else {
+							$id->image = $arr[ $id->transcriptionData[0]->position['plate_num'] ];
+						}
+					}
+				
+				} else {
+					//return "ERROR: Database returned no results";
+				} 
+			}
+		} 
+		/*
+		***
+		* Just unsetting some references here
+		*/
+		unset($id);
+		unset($data);
+	}
+	
+	public function setInput($input){
+		$this->input = $input;
+	}
+	
+	public function getInput(){
+		return  $this->input;
+	}
+	
+	/*
+	 *  Unit Tested by Justin
+	 */
+	public function getTranTags(){
+		/*
+		 * Make sure the user is logged in to access the database
+		 */
+		if( !$this->Config_Model->checkLogin() ) {return array();}
+		$transcriptorTags = "[";
+		
+		$query = $this->db->query("SELECT DISTINCT orf_name, orf_name2, wb_gene, common_name, coordinate FROM $this->transcriptionTable");
+		if(!$query)
+		{
+			echo "Transcription Factor Autocomplete Tags Not Found!";
+		} else {
+			$r = 0;
+			$rc = $query->num_rows();
+			foreach ($query->result() as $row)
+			{
+				$r++;
+				$transcriptorTags .=   '"' . $row->orf_name    . '"';
+				$transcriptorTags .= ', "' . $row->orf_name2   . '"';
+				$transcriptorTags .= ', "' . $row->wb_gene     . '"';
+				$transcriptorTags .= ', "' . $row->common_name . '"';
+//				$transcriptorTags .= ', "' . $row->coordinate  . '"';
+				if( $r != $rc ){ $transcriptorTags .= ", "; }
+			}
+			$transcriptorTags .= "];";
+		}
+		
+		return $transcriptorTags;
+
+	}
+	/*
+	 *  Unit Tested by Justin
+	 */
+	public function getPromTags(){
+		/*
+		 * Make sure the user is logged in to access the database
+		 */
+		if( !$this->Config_Model->checkLogin() ) {return array();}
+		$promotorTags = "[";
+
+		$query = $this->db->query("SELECT DISTINCT bait_id, bait_name, bait_name2, bait_name3 FROM $this->promoterTable");
+		if(!$query)
+		{
+			echo "Promoter Autocomplete Tags Not Found!";
+		} else {
+			$r = 0;
+			$rc = $query->num_rows();
+			foreach ($query->result() as $row)
+			{
+				$r++;
+				$promotorTags .= '"'   . $row->bait_id    . '"';
+				$promotorTags .= ', "' . $row->bait_name  . '"';
+				$promotorTags .= ', "' . $row->bait_name2 . '"';
+				$promotorTags .= ', "' . $row->bait_name3 . '"';
+				if( $r != $rc ){ $promotorTags .= ", "; }
+			}
+			$promotorTags .= "];";
+		}
+		
+		return $promotorTags;
+	}
+	
+	function microtime_float(){
+	    list($usec, $sec) = explode(" ", microtime());
+	    return ((float)$usec + (float)$sec);
+	}
+
+	/*
+	 * Queries the database for intensityData and returns a matrix
+	 */
+	
+	public function getIntensityData($promData, $plateNumber, $user, $project)
+	{	
+		/*
+		 * Make sure the user is logged in to access the database
+		 */
+		if( !$this->Config_Model->checkLogin() ) {return array();}	
+		$VALUE_NOT_FOUND = 0;
+		
+		$list_tags = array(0=>"_1-4", 1=>"_5-8", 2=>"_9-12");
+		
+		$str = "SELECT * FROM $this->interactionTable WHERE plate_name = '" . $promData['bait_id'] . "' AND plate_number = '$plateNumber' AND user_id = '$user' AND project_id = '$project'";
+
+		$query = $this->db->query($str);
+		
+		if(!$query){} else {
+			if($query->num_rows() > 0){
+				foreach ($query->result() as $row){
+					$matrix[$row->y_coord][$row->x_coord]->original_intensity = $row->orig_intensity_value; 
+					$matrix[$row->y_coord][$row->x_coord]->rc_intensity       = $row->rc_intensity_value; 
+					$matrix[$row->y_coord][$row->x_coord]->ptp_intensity      = $row->ptp_intensity_value; 
+					$matrix[$row->y_coord][$row->x_coord]->z_score            = $row->z_score; 
+					$matrix[$row->y_coord][$row->x_coord]->call_type          = $row->call_type; 
+					$matrix[$row->y_coord][$row->x_coord]->human_call         = $row->human_call; 
+					$matrix[$row->y_coord][$row->x_coord]->modified_call      = $row->modified_call; 
+					$matrix[$row->y_coord][$row->x_coord]->array_coord        = $row->array_coord; 
+					$matrix[$row->y_coord][$row->x_coord]->bleed_over         = $row->bleed_over; 
+					$matrix[$row->y_coord][$row->x_coord]->z_prime            = $row->z_prime;
+					$matrix[$row->y_coord][$row->x_coord]->orf_name           = "BLANK";
+					$matrix[$row->y_coord][$row->x_coord]->orf_name2          = "BLANK";
+					$matrix[$row->y_coord][$row->x_coord]->wb_name            = "BLANK";
+					$matrix[$row->y_coord][$row->x_coord]->common_name        = "BLANK";
+					$matrix[$row->y_coord][$row->x_coord]->duplicate          = "FALSE"; 
+				}
+			} else {
+				for($i = 0; $i < X_ELEMENTS; $i++){
+					for($j = 0; $j < Y_ELEMENTS; $j++){
+						$matrix[$j][$i]->original_intensity = $VALUE_NOT_FOUND; 
+						$matrix[$j][$i]->rc_intensity       = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->ptp_intensity      = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->z_score            = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->call_type          = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->human_call         = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->modified_call      = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->array_coord        = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->bleed_over         = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->z_prime            = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->orf_name           = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->orf_name2          = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->wb_name            = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->common_name        = $VALUE_NOT_FOUND;
+						$matrix[$j][$i]->duplicate          = "FALSE";
+					}
+				}
+			}
+		} // end if query
+		
+		// GRAB THE APPROPRIATE TF LIST
+		$query = $this->db->query("SELECT tf_list FROM Projects WHERE user_id = '$user' AND project_id = '$project'");
+		if($query){ // IS VALID QUERY
+			if($query->num_rows() > 0){ // QUERY HAS RESULTS
+				foreach($query->result() as $row){ // ROWS = 1
+					if(isset($row->tf_list)){ // TF LIST IS SET
+						$list = $row->tf_list;
+					}
+				}
+			} else {return array();}
+		} else {return array();}
+		// END GRAB LIST
+		
+		$str = "SELECT * FROM $this->transcriptionTable WHERE plate_number = $plateNumber AND list = '$list'";
+
+		$query = $this->db->query($str);
+		
+		if(!$query){} else {
+			if($query->num_rows() > 0){
+				foreach ($query->result() as $row){
+					for($j = $row->y_coord; $j < $row->y_coord+2; $j++){
+						for($i = $row->x_coord; $i < $row->x_coord+2; $i++){
+							if($row->duplicate == 1){
+								$matrix[$j][$i]->duplicate = "TRUE";
+							} else {
+								$matrix[$j][$i]->duplicate = "FALSE";
+							}
+							$matrix[$j][$i]->orf_name = $row->orf_name;
+							$matrix[$j][$i]->orf_name2 = $row->orf_name2;
+							$matrix[$j][$i]->wb_name = $row->wb_gene;
+							$matrix[$j][$i]->common_name = $row->common_name;
+							$matrix[$j][$i]->alt_name = $row->alt_name;
+							$matrix[$j][$i]->info = $row->info;
+							$matrix[$j][$i]->info2 = $row->info2;
+							$matrix[$j][$i]->note = $row->note;
+						}
+					}
+				}
+			}
+		} // end if query
+		
+		return $matrix;
+	}
+
+	public function update($table, $data, $where){
+		/*
+		 * Make sure the user is logged in to access the database
+		 */
+		if( !$this->Config_Model->checkLogin() ) {return array();}
+		$query = $this->db->update_string($table, $data, $where);
+		
+		$success = $this->db->query($query);
+		
+		return $success;
+	}
+	
+	/*
+	*** parseCoordinates
+	* Parses the coordinates from bait_preycoord into more easily 
+	* manipulatable ( plate_num, x, y ) data and returns an array
+	**/
+	public function parseCoordinates(&$data)
+	{
+		$coord_arr = explode("-", $data->coordinate); // a number,
+		
+		/*
+		***
+		*    EAA01,[$pos_mod]-[$brow][$bcol]
+		**/
+		
+		/*
+		 * $pos_mod contains the position modifier
+		 */
+		$pos_mod = intval($coord_arr[0]);
+			
+		/*
+		 * $brow contains the row		
+		 */
+		$row = $this->convertLetter2Number(substr($coord_arr[1], 0, 1));
+		
+		/*
+		 *  $bcol contains the column
+		 */
+		$col = intval(substr($coord_arr[1], 1));
+		
+		/*
+		 * Contains the plate_num either 0, 1 or 2 depending on pos_mod
+		 */
+		$pos['plate_num'] = floor(($pos_mod - 1)/4);
+		
+		/*
+		 * Contains the x coordinate
+		 */
+		$px = ($col-1)*2;
+		if(($pos_mod%4)%2 == 1){$px = $px + 1;}
+		if(($pos_mod%4)%2 == 0){$px = $px + 2;}
+		$pos['x'] = $px;
+		
+		/*
+		 * Contains the y coordinate
+		 */
+		$py = ($row-1)*2;
+		if($pos_mod%4 == 1 || $pos_mod%4 == 2){$py = $py + 1;}
+		if($pos_mod%4 == 3 || $pos_mod%4 == 0){$py = $py + 2;}
+		$pos['y'] = $py;
+
+		/*
+		 * sets the position in an array
+		 */
+		
+		$data->position = $pos;
+		
+		unset($data);
+	} // end function parseCoordinates
+	
+	private function convertLetter2Number($let) 
+	{
+		$ascval = ord($let);
+			
+		if ($ascval > 64 && $ascval < 91) 
+		{
+			$let = $ascval - 64;
+		} // end if asc val > 64 ..
+		
+		return $let;
+	} // end function convertLetter2Number
+	
+	
+}
